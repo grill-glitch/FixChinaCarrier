@@ -1,5 +1,7 @@
 # FixChinaCarrier (KSU fork)
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 [![Upstream](https://img.shields.io/badge/upstream-RiwiHow%2FFixChinaCarrier-blue)](https://github.com/RiwiHow/FixChinaCarrier)
 [![Fork](https://img.shields.io/badge/fork-grill--glitch%2FFixChinaCarrier-green)](https://github.com/grill-glitch/FixChinaCarrier)
 
@@ -14,8 +16,6 @@ It also bundles the `apns-conf.xml` extracted from a HyperOS
 **OS3.0.306.0.WNCCNXM** factory image (Xiaomi 14 Ultra / `houji`) — 4734 entries
 vs the upstream 4466.
 
-English follows; 简体中文见 [Doc/Chinese Simplified.md](Doc/Chinese%20Simplified.md).
-
 ## Features
 
 - Fixes slow APN on Chinese carriers (CMCC / CUCC / CTCC / CBN).
@@ -29,13 +29,15 @@ English follows; 简体中文见 [Doc/Chinese Simplified.md](Doc/Chinese%20Simpl
 
 | File | Change |
 |---|---|
-| `module.prop` | new id `fixchinacarrier-ksu`, version v6.0.0 (20261002) |
+| `module.prop` | new id `fixchinacarrier-ksu`, version v6.0.1 (20261002) |
 | `META-INF/.../update-binary` | rewritten: no Magisk-only `require_new_magisk`, dual KSU/Magisk detection |
 | `customize.sh` | rewritten: no MMT Extended, no `unzip + . common/functions.sh`, just direct overlay copies |
 | `uninstall.sh` | rewritten: KSU/Magisk clean the overlay automatically |
 | `common/` | **deleted** (was MMT Extended; KSU has no `util_functions.sh`) |
 | `system/placeholder` | deleted |
 | `APN/apns-conf.xml` | replaced with HyperOS OS3.0.306.0.WNCCNXM `product/etc/apns-conf.xml` (4734 entries) |
+| `README.md` | full English documentation |
+| `README.zh-CN.md` | full 简体中文 documentation (this fork) |
 
 ## How it works
 
@@ -57,7 +59,7 @@ APN/apns-conf.xml  ──copy──>  $MODPATH/product/etc/apns-conf.xml   (Hype
 
 ## Install
 
-1. Download `fixchinacarrier-ksu-v6.0.0.zip` from [Releases](../../releases).
+1. Download `fixchinacarrier-ksu-v6.0.1.zip` from [Releases](../../releases).
 2. Install via KernelSU Manager → Modules → Install from storage, **or**
    via Magisk Manager → Modules → Install from storage.
 3. Reboot.
