@@ -1,6 +1,6 @@
 id=fixchinacarrier-ksu
 name=FixChinaCarrier (KSU)
-version=v6.0.2
+version=v6.0.3
 versionCode=20261002
 author=Qingxu & RiwiHow (KSU fork: grill-glitch)
 description=A KernelSU/Magisk module to solve the APN problem of the slow speed of China carrier in some ROMs. APN table is extracted from HyperOS OS3.0.306.0.WNCCNXM (houji).

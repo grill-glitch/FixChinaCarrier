@@ -29,11 +29,11 @@ vs the upstream 4466.
 
 | File | Change |
 |---|---|
-| `module.prop` | new id `fixchinacarrier-ksu`, version v6.0.2 (20261002) |
-| `META-INF/.../update-binary` | rewritten: no Magisk-only `require_new_magisk`, dual KSU/Magisk detection |
-| `customize.sh` | rewritten: no MMT Extended, no `unzip + . common/functions.sh`, just direct overlay copies |
+| `module.prop` | new id `fixchinacarrier-ksu`, version v6.0.3 (20261002) |
+| `META-INF/.../update-binary` | restored to a plain Magisk entry point (`. util_functions.sh` + `install_module()`); **KSU never reads this file** |
+| `customize.sh` | rewritten: no MMT Extended, no `unzip + . common/functions.sh`, no `set -e`; just explicit overlay copies |
 | `uninstall.sh` | rewritten: KSU/Magisk clean the overlay automatically |
-| `common/` | **deleted** (was MMT Extended; KSU has no `util_functions.sh`) |
+| `common/` | **deleted** (was MMT Extended; needs Magisk-only internals KSU doesn't provide) |
 | `system/placeholder` | deleted |
 | `APN/apns-conf.xml` | replaced with HyperOS OS3.0.306.0.WNCCNXM `product/etc/apns-conf.xml` (4734 entries) |
 | `README.md` | full English documentation |
@@ -59,33 +59,68 @@ APN/apns-conf.xml  ──copy──>  $MODPATH/product/etc/apns-conf.xml   (Hype
 
 ## Install
 
-1. Download `fixchinacarrier-ksu-v6.0.2.zip` from [Releases](../../releases).
+1. Download `fixchinacarrier-ksu-v6.0.3.zip` from [Releases](../../releases).
 2. Install via KernelSU Manager → Modules → Install from storage, **or**
    via Magisk Manager → Modules → Install from storage.
 3. Reboot.
 4. Settings → Mobile network → Access Point Names → **Reset to default**.
 
-## KSU compatibility — what was fixed
+## KSU compatibility — what was actually needed
 
-The upstream module's `META-INF/.../update-binary` starts with:
+**KernelSU does not run the zip's `META-INF/com/google/android/update-binary`.**
+Verified in ksud source (`KernelSU-Next/userspace/ksud/src/module.rs` →
+`exec_install_script` → `metamodule::get_install_script`): the script KSU runs is
+always either KSU's own built-in `installer.sh` (`INSTALLER_CONTENT`) or the
+active metamodule's `metainstall.sh`. So the file that decides whether a module
+installs on KSU is **`customize.sh`** — KSU extracts the zip into `$MODPATH`
+and sources it.
+
+Upstream's `customize.sh` is:
 
 ```sh
-[ -f /data/adb/magisk/util_functions.sh ] || require_new_magisk
-. /data/adb/magisk/util_functions.sh
+DEBUG=true
+SKIPUNZIP=1
+unzip -qjo "$ZIPFILE" 'common/functions.sh' -d $TMPDIR >&2
+. $TMPDIR/functions.sh
 ```
 
-KernelSU does not provide this file, so on KSU the install aborts with
-`"Please install Magisk v20.0+!"`. This fork's update-binary instead detects
-the host via `$KSU` (set by `ksud`) and `$MAGISK_VER_CODE` (set by Magisk),
-then runs `customize.sh` directly — no Magisk toolchain needed.
+…i.e. it delegates everything to Zackptg5's **MMT Extended** template, which is
+written against Magisk internals (`$VKSEL`, `$NVBASE`, `$MAGISKTMP`, `$API`,
+`install_script`, MMT's own `set_permissions`, the `Volume-Key-Selector` addon
+binaries, …). Those either don't exist or don't behave the same under KSU's
+`installer.sh`. This fork makes `customize.sh` self-contained POSIX `sh` that
+only uses what both hosts guarantee, and drops the `common/` tree entirely.
 
-`customize.sh` itself used to `unzip -qjo "$ZIPFILE" 'common/functions.sh' -d $TMPDIR`
-and `. $TMPDIR/functions.sh`, which is Zackptg5's MMT Extended template and
-references `$VKSEL`, `$NVBASE`, `$MAGISKTMP`, `$API`, etc. — all Magisk-only
-internals. The whole `common/` tree (including the `Volume-Key-Selector`
-addon) is removed in this fork; the installer now does the file work directly
-in `sh`, with no volume-key UI (KernelSU installs run in the live Android UI,
-not a recovery environment with no screen interaction available).
+`META-INF/.../update-binary` is therefore **kept as Magisk's entry point** and
+does the standard Magisk thing (`. /data/adb/magisk/util_functions.sh` +
+`install_module()`), so Magisk installs keep working normally.
+
+The `Volume-Key-Selector` addon is gone too: KSU installs run from the live
+Android UI, where there is no volume-key install prompt to answer.
+
+### ⚠️ Never use `set -e` in `customize.sh`
+
+`customize.sh` is **sourced**, not executed — KSU's `ksud/src/installer.sh`
+does `. $MODPATH/customize.sh` inside `install_module()`. Any shell option the
+module sets therefore leaks into the host installer and stays active
+afterwards. A `set -e` there made the install end with:
+
+```
+- Error: Failed to install module script
+```
+
+…even though the module had been extracted and overlaid correctly. The host
+continues with its own housekeeping after the module script returns, and
+KSU-Next `installer.sh` line 458 is:
+
+```sh
+rmdir -p $MODPATH 2>/dev/null      # returns 1: module dir is not empty
+```
+
+Under the leaked `errexit`, that single non-zero return aborts the installer
+shell. The fix (v6.0.3) is to not touch shell options at all and to check
+errors explicitly — failing through the host's `abort()` when the module
+genuinely cannot install.
 
 ## Troubleshooting
 

@@ -1,44 +1,51 @@
 #!/sbin/sh
-# KernelSU / Magisk compatible module installer.
+# Magisk installer entry point.
 #
-# Both KernelSU and Magisk invoke this script during zip install.
-# Module is laid out into $MODPATH (= /data/adb/modules/<id>) and module.prop
-# must already exist there (created from the zip by the caller for Magisk,
-# or by ksud for KernelSU). customize.sh does the actual file work.
+# !!! KernelSU NEVER RUNS THIS FILE !!!
+#
+# Verified in ksud source (KernelSU-Next userspace/ksud/src/module.rs ->
+# exec_install_script -> metamodule::get_install_script): the install script is
+# always either KSU's own built-in installer.sh (INSTALLER_CONTENT) or the
+# active metamodule's metainstall.sh. The zip's META-INF/com/google/android/
+# update-binary is never read. KSU extracts the zip into $MODPATH and sources
+# customize.sh itself.
+#
+# So this file exists purely for Magisk, and it must do the standard Magisk
+# dance: load util_functions.sh and call install_module(). install_module()
+# extracts the zip, sets MODPATH, sources customize.sh, then cleans up.
+#
+# Do not use `set -e` here either - install_module() is Magisk's own code and
+# the module must not change the installer's shell behaviour.
 
-set -e
+umask 022
+
 ui_print() { echo "$1"; }
 
 OUTFD=$2
 ZIPFILE=$3
 
-# $MODPATH and $MODID are provided by the host (ksud or Magisk).
-# If running standalone (manual invoke), fall back to defaults.
-[ -n "$MODPATH" ] || MODPATH=/data/adb/modules/fixchinacarrier-ksu
-[ -n "$MODID"  ] || MODID=fixchinacarrier-ksu
+mount /data 2>/dev/null
 
-mkdir -p "$MODPATH"
+MAGISK_UTIL=/data/adb/magisk/util_functions.sh
+if [ ! -f "$MAGISK_UTIL" ]; then
+  ui_print "
 
-# Detect host (KSU sets KSU=true env; Magisk sets MAGISK_VER_CODE).
-if [ "$KSU" = "true" ]; then
-  ui_print "- Installing via KernelSU"
-elif [ -n "$MAGISK_VER_CODE" ]; then
-  ui_print "- Installing via Magisk"
-else
-  ui_print "!! Unknown root framework (neither KSU nor Magisk detected)."
-  ui_print "   Aborting."
+***************************"
+  ui_print " Please install Magisk v20.4+! "
+  ui_print "
+
+***************************"
   exit 1
 fi
 
-# Run module customization if present.
-if [ -f "$MODPATH/customize.sh" ]; then
-  ui_print "- Running customize.sh"
-  # shellcheck disable=SC1091
-  . "$MODPATH/customize.sh"
-else
-  ui_print "!! customize.sh not found in $MODPATH"
+# shellcheck disable=SC1090
+. "$MAGISK_UTIL"
+
+if [ "${MAGISK_VER_CODE:-0}" -lt 20400 ]; then
+  ui_print "! Magisk v20.4 or newer is required."
   exit 1
 fi
 
-ui_print "- Done"
+# Extracts the zip into $MODPATH, sources customize.sh, then cleans up.
+install_module
 exit 0
