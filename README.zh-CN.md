@@ -66,60 +66,6 @@ APN/apns-conf.xml  ──copy──>  $MODPATH/product/etc/apns-conf.xml   (Hype
 3. 重启。
 4. 设置 → 移动网络 → 接入点名称 (APN) → **重置为默认**。
 
-## KSU 兼容性——真正需要改的地方
-
-**KernelSU 根本不执行 zip 里的 `META-INF/com/google/android/update-binary`。**
-这一点已在 ksud 源码中核实（`KernelSU-Next/userspace/ksud/src/module.rs` →
-`exec_install_script` → `metamodule::get_install_script`）：KSU 执行的安装脚本
-只可能是它内置的 `installer.sh`（`INSTALLER_CONTENT`），或是当前 metamodule
-的 `metainstall.sh`。所以决定模块能否在 KSU 装上的是 **`customize.sh`** ——
-KSU 把 zip 解压到 `$MODPATH` 后直接 source 它。
-
-上游的 `customize.sh` 是：
-
-```sh
-DEBUG=true
-SKIPUNZIP=1
-unzip -qjo "$ZIPFILE" 'common/functions.sh' -d $TMPDIR >&2
-. $TMPDIR/functions.sh
-```
-
-也就是说它把一切都交给 Zackptg5 的 **MMT Extended** 模板，而该模板是照着
-Magisk 内部机制写的（`$VKSEL`、`$NVBASE`、`$MAGISKTMP`、`$API`、
-`install_script`、MMT 自带的 `set_permissions`、`Volume-Key-Selector`
-音量键二进制……）。这些在 KSU 的 `installer.sh` 下要么不存在、要么行为不同。
-本 fork 把 `customize.sh` 改成自包含的 POSIX `sh`，只使用两个宿主都保证提供的
-机制，并整体删除 `common/` 目录。
-
-因此 `META-INF/.../update-binary` **保留为 Magisk 的入口**，做标准 Magisk 流程
-（`. /data/adb/magisk/util_functions.sh` + `install_module()`），让 Magisk 安装
-照常工作。
-
-`Volume-Key-Selector` 音量键 addon 也一并删除了：KSU 的安装是在运行中的
-Android 界面里完成的，没有音量键选择交互可答。
-
-### ⚠️ 绝对不要在 `customize.sh` 里用 `set -e`
-
-`customize.sh` 是被 **source** 执行的，不是独立运行 —— KSU 的
-`ksud/src/installer.sh` 在 `install_module()` 里执行 `. $MODPATH/customize.sh`。
-因此模块设置的任何 shell 选项都会**泄漏到宿主安装脚本**，并在模块脚本返回后
-继续生效。之前加了 `set -e`，导致安装最后报：
-
-```
-- Error: Failed to install module script
-```
-
-而此时模块其实已经正确解压并完成 overlay 了。原因是宿主在模块脚本返回后还要
-继续自己的收尾工作，KSU-Next `installer.sh` 第 458 行是：
-
-```sh
-rmdir -p $MODPATH 2>/dev/null      # 模块目录非空，返回 1
-```
-
-被泄漏的 `errexit` 会把这一个非零返回当成致命错误，直接中止整个安装 shell。
-v6.0.3 的修复方式是**完全不碰 shell 选项**，改为显式检查错误，真正装不了时
-通过宿主的 `abort()` 失败。
-
 ## 故障排查
 
 #### 提示 "Neither KSU nor Magisk detected"
