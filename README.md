@@ -1,61 +1,114 @@
-# FixChinaCarrier
-English
+# FixChinaCarrier (KSU fork)
 
-[简体中文](https://github.com/RiwiHow/FixChinaCarrier/blob/master/Doc/Chinese%20Simplified.md)
+[![Upstream](https://img.shields.io/badge/upstream-RiwiHow%2FFixChinaCarrier-blue)](https://github.com/RiwiHow/FixChinaCarrier)
+[![Fork](https://img.shields.io/badge/fork-grill--glitch%2FFixChinaCarrier-green)](https://github.com/grill-glitch/FixChinaCarrier)
+
+KernelSU-compatible fork of [RiwiHow/FixChinaCarrier](https://github.com/RiwiHow/FixChinaCarrier).
+
+**This fork** drops the MMT Extended Magisk template (which hard-fails on KernelSU
+because it requires `/data/adb/magisk/util_functions.sh`) and replaces it with a
+minimal KSU/Magisk dual-path installer that uses `$KSU` to detect the host (per
+the [KernelSU module guide](https://kernelsu.org/zh_CN/guide/module.html)).
+
+It also bundles the `apns-conf.xml` extracted from a HyperOS
+**OS3.0.306.0.WNCCNXM** factory image (Xiaomi 14 Ultra / `houji`) — 4734 entries
+vs the upstream 4466.
+
+English follows; 简体中文见 [Doc/Chinese Simplified.md](Doc/Chinese%20Simplified.md).
 
 ## Features
 
-- Addresses slow internet speeds on Chinese carriers
-- Systemless method for replacement
-- Supports multiple flexible modifications
+- Fixes slow APN on Chinese carriers (CMCC / CUCC / CTCC / CBN).
+- Works on **both KernelSU and Magisk**.
+- Systemless via overlayfs (KSU) / magic mount (Magisk).
+- Overlays `apns-conf.xml` into every known path on the running ROM
+  (`/product/etc`, `/system/etc`, `/vendor/etc`, `/system/system_ext/etc`),
+  so the same zip works on HyperOS, crDroid, LineageOS, AOSP.
 
-## How it works?
+## Changes vs upstream v5.3.2
 
-The module replaces the system's original `apns-conf.xml` with MIUI's version using Magisk's [Magic Mount](https://topjohnwu.github.io/Magisk/details.html#magic-mount).
+| File | Change |
+|---|---|
+| `module.prop` | new id `fixchinacarrier-ksu`, version v6.0.0 (20261002) |
+| `META-INF/.../update-binary` | rewritten: no Magisk-only `require_new_magisk`, dual KSU/Magisk detection |
+| `customize.sh` | rewritten: no MMT Extended, no `unzip + . common/functions.sh`, just direct overlay copies |
+| `uninstall.sh` | rewritten: KSU/Magisk clean the overlay automatically |
+| `common/` | **deleted** (was MMT Extended; KSU has no `util_functions.sh`) |
+| `system/placeholder` | deleted |
+| `APN/apns-conf.xml` | replaced with HyperOS OS3.0.306.0.WNCCNXM `product/etc/apns-conf.xml` (4734 entries) |
 
-## Requestments
+## How it works
 
-- Android 8 or higher and use `apns-conf.xml` as the device's APN configuration file
-- Magisk 20.4 or higher with the manager installed
+```
+APN/apns-conf.xml  ──copy──>  $MODPATH/product/etc/apns-conf.xml   (HyperOS)
+                            $MODPATH/system/etc/apns-conf.xml    (AOSP)
+                            $MODPATH/vendor/etc/apns-conf.xml    (vendor ROMs)
+                            $MODPATH/system/system_ext/etc/apns-conf.xml (system_ext)
+                            │
+                            └─ KSU overlayfs / Magisk magic mount ──> /product/etc/apns-conf.xml (effective)
+```
 
-## How to use it?
-Download the module from [releases](https://github.com/RiwiHow/FixChinaCarrier/releases) and install it through Magisk Manager.
+## Requirements
 
-After installation, go to the `Access Point Names (APN)` settings and manually `Reset to default`.
+- Android 8+ (the module only overlays `apns-conf.xml`).
+- **KernelSU** (any recent version) **OR** **Magisk 20.4+**.
+- A ROM that ships `apns-conf.xml` in at least one of:
+  `/product/etc`, `/system/etc`, `/vendor/etc`, `/system/system_ext/etc`.
 
-Here's an example:
+## Install
 
-<details>
-<summary>Before using</summary>
-<img src="Doc/images/3.png">
-</details>
+1. Download `fixchinacarrier-ksu-v6.0.0.zip` from [Releases](../../releases).
+2. Install via KernelSU Manager → Modules → Install from storage, **or**
+   via Magisk Manager → Modules → Install from storage.
+3. Reboot.
+4. Settings → Mobile network → Access Point Names → **Reset to default**.
 
-<details>
-<summary>After using</summary>
-<img src="Doc/images/1.png">
-</details>
+## KSU compatibility — what was fixed
+
+The upstream module's `META-INF/.../update-binary` starts with:
+
+```sh
+[ -f /data/adb/magisk/util_functions.sh ] || require_new_magisk
+. /data/adb/magisk/util_functions.sh
+```
+
+KernelSU does not provide this file, so on KSU the install aborts with
+`"Please install Magisk v20.0+!"`. This fork's update-binary instead detects
+the host via `$KSU` (set by `ksud`) and `$MAGISK_VER_CODE` (set by Magisk),
+then runs `customize.sh` directly — no Magisk toolchain needed.
+
+`customize.sh` itself used to `unzip -qjo "$ZIPFILE" 'common/functions.sh' -d $TMPDIR`
+and `. $TMPDIR/functions.sh`, which is Zackptg5's MMT Extended template and
+references `$VKSEL`, `$NVBASE`, `$MAGISKTMP`, `$API`, etc. — all Magisk-only
+internals. The whole `common/` tree (including the `Volume-Key-Selector`
+addon) is removed in this fork; the installer now does the file work directly
+in `sh`, with no volume-key UI (KernelSU installs run in the live Android UI,
+not a recovery environment with no screen interaction available).
 
 ## Troubleshooting
 
-#### Install failed with "Upzip error"
+#### "Neither KSU nor Magisk detected"
 
-Please download the module again and ensure that the download process is complete.
+You're not running a supported root framework. Install KernelSU or Magisk first.
 
-#### I install it but there is only a blank directory in `/data/adb/modules/fixchinacarrier`
+#### "No known APN target directory found"
 
-This may occur if you upgraded to a newer version from an older version. Reinstalling the module through Magisk Manager should resolve the issue.
+Your ROM doesn't ship `apns-conf.xml` in any of `/product/etc`,
+`/system/etc`, `/vendor/etc`, or `/system/system_ext/etc`. Open an issue
+with the output of `find / -name apns-conf.xml 2>/dev/null` from a root shell.
 
-#### Installation failed! It says "The ROM is not supported."
+#### Module installs but APN settings still show the old list
 
-As the message indicates, the ROM you are using is currently not supported. You can open an issue with a detailed description and installation log or submit a pull request to help resolve the issue.
+Some carriers cache the APN list per-SIM. After reboot:
+Settings → Mobile network → APN → menu (⋮) → **Reset to default**.
 
 ## Credits
 
-* [Magisk](https://github.com/topjohnwu/Magisk) for providing the tools
+- [RiwiHow](https://github.com/RiwiHow) / Qingxu — original module & upstream APN work.
+- [Magisk](https://github.com/topjohnwu/Magisk) for the original toolchain.
+- [Zackptg5](https://forum.xda-developers.com/m/zackptg5.6037748/) for the MMT Extended template (no longer used by this fork, but the original upstream was based on it).
+- [grill-glitch](https://github.com/grill-glitch) — KSU port & HyperOS APN refresh.
 
-* [Qingxu](https://github.com/RimuruW) for code work
+## License
 
-* [vvb2060](https://github.com/vvb2060) and [落叶凄凉TEL](http://www.coolapk.com/u/2277637) for provide guidances
-
-* [Zackptg5](https://forum.xda-developers.com/m/zackptg5.6037748/) for providing the Magisk module template
-
+Apache-2.0 (see [LICENSE](LICENSE)). Upstream-licensed.
