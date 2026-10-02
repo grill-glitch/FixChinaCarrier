@@ -31,7 +31,7 @@ HyperOS 新增条目）。
 
 | 文件 | 改动 |
 |---|---|
-| `module.prop` | 新 id `fixchinacarrier-ksu`，版本 v6.0.1（20261002） |
+| `module.prop` | 新 id `fixchinacarrier-ksu`，版本 v6.0.2（20261002） |
 | `META-INF/.../update-binary` | 完全重写：去掉 Magisk-only `require_new_magisk`，改为 KSU/Magisk 双识别 |
 | `customize.sh` | 完全重写：去掉 MMT Extended，不再 `unzip + . common/functions.sh`，直接做 overlay 拷贝 |
 | `uninstall.sh` | 完全重写：KSU/Magisk 模块卸载时自动清理 overlay |
@@ -61,7 +61,7 @@ APN/apns-conf.xml  ──copy──>  $MODPATH/product/etc/apns-conf.xml   (Hype
 
 ## 安装步骤
 
-1. 从 [Releases](../../releases) 下载 `fixchinacarrier-ksu-v6.0.1.zip`。
+1. 从 [Releases](../../releases) 下载 `fixchinacarrier-ksu-v6.0.2.zip`。
 2. **KernelSU Manager → 模块 → 从本地安装**，或 **Magisk Manager → 模块 → 从本地安装**。
 3. 重启。
 4. 设置 → 移动网络 → 接入点名称 (APN) → **重置为默认**。

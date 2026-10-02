@@ -29,7 +29,7 @@ vs the upstream 4466.
 
 | File | Change |
 |---|---|
-| `module.prop` | new id `fixchinacarrier-ksu`, version v6.0.1 (20261002) |
+| `module.prop` | new id `fixchinacarrier-ksu`, version v6.0.2 (20261002) |
 | `META-INF/.../update-binary` | rewritten: no Magisk-only `require_new_magisk`, dual KSU/Magisk detection |
 | `customize.sh` | rewritten: no MMT Extended, no `unzip + . common/functions.sh`, just direct overlay copies |
 | `uninstall.sh` | rewritten: KSU/Magisk clean the overlay automatically |
@@ -59,7 +59,7 @@ APN/apns-conf.xml  ──copy──>  $MODPATH/product/etc/apns-conf.xml   (Hype
 
 ## Install
 
-1. Download `fixchinacarrier-ksu-v6.0.1.zip` from [Releases](../../releases).
+1. Download `fixchinacarrier-ksu-v6.0.2.zip` from [Releases](../../releases).
 2. Install via KernelSU Manager → Modules → Install from storage, **or**
    via Magisk Manager → Modules → Install from storage.
 3. Reboot.
